@@ -1,1 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sna[i]per - Tilmelding</title>
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+      padding: 20px; 
+      background-color: #f5f5f7; 
+      color: #1d1d1f; 
+      max-width: 450px; 
+      margin: 0 auto; 
+    }
+    .container {
+      background-color: #ffffff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    h2 { 
+      margin-top: 0;
+      color: #000000;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    h3 {
+      color: #86868b;
+      font-size: 16px;
+      font-weight: 500;
+      margin-top: -10px;
+      margin-bottom: 25px;
+      border-bottom: 1px solid #d2d2d7;
+      padding-bottom: 10px;
+    }
+    .felt-gruppe { 
+      margin-bottom: 20px; 
+    }
+    label { 
+      display: block; 
+      font-weight: 600; 
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    input[type="text"], input[type="email"] { 
+      width: 100%; 
+      padding: 12px; 
+      border: 1px solid #d2d2d7; 
+      border-radius: 8px; 
+      box-sizing: border-box; 
+      font-size: 16px; 
+      background-color: #f5f5f7;
+    }
+    input[type="text"]:focus, input[type="email"]:focus {
+      outline: none;
+      border-color: #0071e3;
+      background-color: #ffffff;
+    }
+    .checkbox-valgmulighed {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      background-color: #f5f5f7;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .checkbox-valgmulighed input[type="checkbox"] {
+      margin-right: 12px;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: #0071e3;
+    }
+    .checkbox-valgmulighed span {
+      font-size: 15px;
+      font-weight: 500;
+    }
+    input[type="file"] {
+      font-size: 14px;
+    }
+    button { 
+      background-color: #000000; 
+      color: white; 
+      border: none; 
+      padding: 14px 20px; 
+      font-size: 16px; 
+      font-weight: 600; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      width: 100%; 
+      margin-top: 15px; 
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #1d1d1f;
+    }
+    button:disabled { 
+      background-color: #d2d2d7; 
+      color: #86868b;
+      cursor: not-allowed; 
+    }
+    #status { 
+      margin-top: 15px; 
+      font-weight: 500; 
+      text-align: center; 
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
 
+  <div class="container">
+    <h2>Sna[i]per: Tilmelding</h2>
+    
+    <h3 id="holdNavnVisning">Henter spildata...</h3>
+
+    <input type="hidden" id="spreadsheetId" value="">
+    <input type="hidden" id="mappeId" value="">
+
+    <div id="formularContainer" style="display: none;">
+      <div class="felt-gruppe">
+        <label for="email">E-mail adresse:</label>
+        <input type="email" id="email" required placeholder="Skole- eller privatmail">
+      </div>
+
+      <div class="felt-gruppe">
+        <label for="fornavn">Fornavn:</label>
+        <input type="text" id="fornavn" required autocomplete="given-name">
+      </div>
+
+      <div class="felt-gruppe">
+        <label for="efternavn">Efternavn:</label>
+        <input type="text" id="efternavn" required autocomplete="family-name">
+      </div>
+
+      <div class="felt-gruppe">
+        <label>Ønsker til rolle (Vælg gerne flere):</label>
+        <label class="checkbox-valgmulighed">
+          <input type="checkbox" name="rolleOnske" value="Sna[i]per">
+          <span>Sna[i]per (Hold 1)</span>
+        </label>
+        <label class="checkbox-valgmulighed">
+          <input type="checkbox" name="rolleOnske" value="Politibetjent">
+          <span>Politibetjent (Hold 2)</span>
+        </label>
+        <label class="checkbox-valgmulighed">
+          <input type="checkbox" name="rolleOnske" value="Privatdetektiv">
+          <span>Privatdetektiv (Hold 2)</span>
+        </label>
+        <label class="checkbox-valgmulighed">
+          <input type="checkbox" name="rolleOnske" value="Journalist">
+          <span>Journalist (Hold 2)</span>
+        </label>
+      </div>
+
+      <div class="felt-gruppe">
+        <label for="selfie">Tag eller upload en selfie:</label>
+        <input type="file" id="selfie" accept="image/*" capture="camera" required>
+      </div>
+
+      <button id="sendKnap" onclick="indsendTilmelding()">Tilmeld mig spillet</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <script>
+    // INDSÆT DIN NYE GOOGLE CLOUD FUNCTION URL HER
+    const CLOUD_FUNCTION_URL = "https://snaipertilmelding-160286776843.europe-west1.run.app";
+
+    // Kør automatisk når siden loades for at lave dynamic lookup via URL-parameter (?skole=XXX)
+    window.onload = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const skoleID = urlParams.get('skole');
+
+      if (!skoleID) {
+        document.getElementById('holdNavnVisning').innerHTML = "Fejl: Skole-ID mangler i URL'en. Kontakt din spilleder.";
+        document.getElementById('holdNavnVisning').style.color = "#ff3b30";
+        return;
+      }
+
+      // Kalder din nye Google Cloud Function backend (Trin 1: Validering og hent data)
+      fetch(`${CLOUD_FUNCTION_URL}?skole=${encodeURIComponent(skoleID)}`)
+        .then(response => {
+          if (!response.ok) {
+            return response.text().then(text => { throw new Error(text) });
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.succes) {
+            document.getElementById('holdNavnVisning').innerHTML = "Hold: " + data.navn;
+            document.getElementById('spreadsheetId').value = data.spreadsheetId;
+            document.getElementById('mappeId').value = data.mappeId;
+            document.getElementById('formularContainer').style.display = "block";
+          }
+        })
+        .catch(error => {
+          document.getElementById('holdNavnVisning').innerHTML = error.message.includes('<h3>') ? error.message : "<h3>Fejl ved indlæsning af spildata.</h3>";
+          document.getElementById('holdNavnVisning').style.color = "#ff3b30";
+        });
+    };
+
+    function indsendTilmelding() {
+      var email = document.getElementById('email').value.trim();
+      var fornavn = document.getElementById('fornavn').value.trim();
+      var efternavn = document.getElementById('efternavn').value.trim();
+      var fileInput = document.getElementById('selfie');
+      var statusDiv = document.getElementById('status');
+      var sendKnap = document.getElementById('sendKnap');
+      
+      var spreadsheetId = document.getElementById('spreadsheetId').value;
+      var mappeId = document.getElementById('mappeId').value;
+
+      var valgteRoller = [];
+      var checkboxes = document.querySelectorAll('input[name="rolleOnske"]:checked');
+      checkboxes.forEach(function(checkbox) {
+        valgteRoller.push(checkbox.value);
+      });
+
+      if (!email || !fornavn || !efternavn || valgteRoller.length === 0 || !fileInput.files[0]) {
+        alert('Udfyld venligst alle felter, vælg mindst én rolle og tag et billede.');
+        return;
+      }
+
+      sendKnap.disabled = true;
+      statusDiv.innerHTML = "Komprimerer selfie og sender tilmelding...";
+      statusDiv.style.color = "#0071e3";
+
+      var file = fileInput.files[0];
+      var reader = new FileReader();
+
+      reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+          var max_size = 1000;
+          var width = img.width;
+          var height = img.height;
+
+          if (width > height) {
+            if (width > max_size) { height *= max_size / width; width = max_size; }
+          } else {
+            if (height > max_size) { width *= max_size / height; height = max_size; }
+          }
+
+          var canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          var compressedBase64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+          
+          var tilmeldingsData = {
+            email: email,
+            fornavn: fornavn,
+            efternavn: efternavn,
+            rolleOnske: valgteRoller, 
+            billedeBase64: compressedBase64,
+            spreadsheetId: spreadsheetId,
+            mappeId: mappeId
+          };
+
+          // Kalder din nye Google Cloud Function backend (Trin 2: Gemmer data)
+          fetch(CLOUD_FUNCTION_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(tilmeldingsData)
+          })
+          .then(response => response.json())
+          .then(svar => {
+            if (svar.success) {
+              document.getElementById('formularContainer').innerHTML = 
+                "<div style='text-align:center; padding: 20px 0;'>" +
+                "<h3 style='color:#34c759; border:none; font-size:20px; font-weight:600; margin-bottom:10px;'>Du er nu tilmeldt!</h3>" +
+                "<p style='color:#86868b; margin:0;'>Hold øje med din indbakke. Spillet starter snart.</p>" +
+                "</div>";
+            } else {
+              statusDiv.innerHTML = "Fejl: " + svar.error;
+              statusDiv.style.color = "#ff3b30";
+              sendKnap.disabled = false;
+            }
+          })
+          .catch(error => {
+            statusDiv.innerHTML = "Forbindelsesfejl: Kunne ikke sende tilmelder.";
+            statusDiv.style.color = "#ff3b30";
+            sendKnap.disabled = false;
+          });
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
