@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snaiper Eliminering</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 500px; margin: 20px auto; padding: 15px; }
+        .felt { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { background: #d9534f; color: white; padding: 10px; border: none; width: 100%; cursor: pointer; font-size: 16px; }
+        button:disabled { background: #ccc; }
+        .loading { color: blue; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <h2 id="overskrift">Henter spildata...</h2>
+    <p id="status-besked" class="loading">Vent venligst mens spillerlisten hentes...</p>
+
+    <form id="elimineringsForm" style="display:none;" onsubmit="sendData(event)">
+        <div class="felt">
+            <label>Email adresse</label>
+            <input type="email" id="email" required>
+        </div>
+
+        <div class="felt">
+            <label>Dit eget navn</label>
+            <select id="egetNavn" required><option value="">Vælg dit navn...</option></select>
+        </div>
+
+        <div class="felt">
+            <label>Navn på den eliminerede</label>
+            <select id="elimineredeNavn" required><option value="">Vælg den eliminerede...</option></select>
+        </div>
+
+        <div class="felt">
+            <label>Hvor fandt elimineringen sted?</label>
+            <textarea id="sted" rows="2" required placeholder="F.eks. Ved kantinen eller fysiklokalet"></textarea>
+        </div>
+
+        <div class="felt">
+            <label>Notér dato for elimineringen</label>
+            <input type="date" id="dato" required>
+        </div>
+
+        <div class="felt">
+            <label>Notér tidspunkt for elimineringen</label>
+            <input type="time" id="tidspunkt" required>
+        </div>
+
+        <div class="felt">
+            <label>Upload Selfie (Valgfri)</label>
+            <input type="file" id="billedeSelfie" accept="image/*">
+        </div>
+
+        <div class="felt">
+            <label>Upload billede af eliminerede (Obligatorisk)</label>
+            <input type="file" id="billedeElimineret" accept="image/*" required>
+        </div>
+
+        <button type="submit" id="sendKnap">Indsend Eliminering</button>
+    </form>
+
+    <script>
+        // INDSÆT DIN NYE URL FRA TERMINALEN HER:
+        const CLOUD_FUNCTION_URL = 'https://snaiper-eliminering-j4pfab4uda-ew.a.run.app'; 
+        
+        let spreadsheetId = '';
+        const urlParams = new URLSearchParams(window.location.search);
+        const skoleId = urlParams.get('skole');
+
+        // Hent spillere og skole-info med det samme
+        window.onload = async () => {
+            if (!skoleId) {
+                document.getElementById('status-besked').innerText = 'Fejl: Mangler skattekode/skole ID i URL\'en.';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${CLOUD_FUNCTION_URL}?skole=${skoleId}`);
+                if (!response.ok) throw new Error('Skole ikke fundet');
+                
+                const data = await response.json();
+                spreadsheetId = data.spreadsheetId;
+                document.getElementById('overskrift').innerText = `Sniper: ${data.skoleNavn}`;
+                
+                // Fyld rullemenuerne med spillere
+                const egetNavnSelect = document.getElementById('egetNavn');
+                const elimineretSelect = document.getElementById('elimineredeNavn');
+                
+                data.spillere.forEach(spiller => {
+                    const opt1 = new Option(spiller, spiller);
+                    const opt2 = new Option(spiller, spiller);
+                    egetNavnSelect.add(opt1);
+                    elimineretSelect.add(opt2);
+                });
+
+                document.getElementById('status-besked').style.display = 'none';
+                document.getElementById('elimineringsForm').style.display = 'block';
+            } catch (fejl) {
+                document.getElementById('status-besked').innerText = 'Kunne ikke hente spildata. Tjek dit link.';
+            }
+        };
+
+        // Konverter fil til Base64
+        const tilBase64 = fil => new Promise((resolve, reject) => {
+            if (!fil) return resolve(null);
+            const reader = new FileReader();
+            reader.readAsDataURL(fil);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = fejl => reject(fejl);
+        });
+
+        async function sendData(e) {
+            e.preventDefault();
+            const knap = document.getElementById('sendKnap');
+            knap.disabled = true;
+            knap.innerText = 'Sender data...';
+
+            try {
+                const filSelfie = document.getElementById('billedeSelfie').files[0];
+                const filElimineret = document.getElementById('billedeElimineret').files[0];
+
+                const base64Selfie = await tilBase64(filSelfie);
+                const base64Elimineret = await tilBase64(filElimineret);
+
+                const payload = {
+                    spreadsheetId: spreadsheetId,
+                    email: document.getElementById('email').value,
+                    egetNavn: document.getElementById('egetNavn').value,
+                    elimineredeNavn: document.getElementById('elimineredeNavn').value,
+                    sted: document.getElementById('sted').value,
+                    dato: document.getElementById('dato').value,
+                    tidspunkt: document.getElementById('tidspunkt').value,
+                    billedeSelfie: base64Selfie,
+                    billedeElimineret: base64Elimineret
+                };
+
+                const response = await fetch(CLOUD_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    alert('Elimineringen er registreret! Godt jagtet.');
+                    document.getElementById('elimineringsForm').reset();
+                } else {
+                    alert('Der skete en fejl på serveren. Prøv igen.');
+                }
+            } catch (fejl) {
+                alert('Netværksfejl. Prøv igen.');
+            } finally {
+                knap.disabled = false;
+                knap.innerText = 'Indsend Eliminering';
+            }
+        }
+    </script>
+</body>
+</html>
