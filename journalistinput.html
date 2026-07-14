@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sna[i]per - Freelance Journalist</title>
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+      padding: 20px; 
+      background-color: #f5f5f7; 
+      color: #1d1d1f; 
+      max-width: 450px; 
+      margin: 0 auto; 
+    }
+    .container {
+      background-color: #ffffff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    h2 { 
+      margin-top: 0;
+      color: #000000;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    h3 {
+      color: #86868b;
+      font-size: 16px;
+      font-weight: 500;
+      margin-top: -10px;
+      margin-bottom: 25px;
+      border-bottom: 1px solid #d2d2d7;
+      padding-bottom: 10px;
+    }
+    .felt-gruppe { 
+      margin-bottom: 20px; 
+    }
+    label { 
+      display: block; 
+      font-weight: 600; 
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    input[type="email"], select, textarea { 
+      width: 100%; 
+      padding: 12px; 
+      border: 1px solid #d2d2d7; 
+      border-radius: 8px; 
+      box-sizing: border-box; 
+      font-size: 16px; 
+      background-color: #f5f5f7;
+      font-family: inherit;
+    }
+    input[type="email"]:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #0071e3;
+      background-color: #ffffff;
+    }
+    button { 
+      background-color: #000000; 
+      color: white; 
+      border: none; 
+      padding: 14px 20px; 
+      font-size: 16px; 
+      font-weight: 600; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      width: 100%; 
+      margin-top: 15px; 
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #1d1d1f;
+    }
+    button:disabled { 
+      background-color: #d2d2d7; 
+      color: #86868b;
+      cursor: not-allowed; 
+    }
+    #status { 
+      margin-top: 15px; 
+      font-weight: 500; 
+      text-align: center; 
+      font-size: 14px;
+    }
+    .dynamisk-sektion {
+      display: none;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Sna[i]per: Journalist</h2>
+    
+    <h3 id="holdNavnVisning">Henter spildata...</h3>
+
+    <input type="hidden" id="spreadsheetId" value="">
+
+    <div id="formularContainer" style="display: none;">
+      <div class="felt-gruppe">
+        <label for="email">Din e-mail adresse:</label>
+        <input type="email" id="email" required placeholder="Indtast din e-mail">
+      </div>
+
+      <div class="felt-gruppe">
+        <label for="egetNavn">Dit eget navn (Journalist):</label>
+        <select id="egetNavn" required>
+          <option value="">Hvem er du?</option>
+        </select>
+      </div>
+
+      <div class="felt-gruppe">
+        <label for="omtaleNavn">Navn på den person du ønsker at skrive om:</label>
+        <select id="omtaleNavn" required>
+          <option value="">Hvem handler historien om?</option>
+        </select>
+      </div>
+
+      <div class="felt-gruppe">
+        <label for="valgtInput">Vælg dit skriftlige input:</label>
+        <select id="valgtInput" required onchange="haandterValgskift()">
+          <option value="">Vælg emne...</option>
+          <option value="En Civil er blevet elimineret!">En Civil er blevet elimineret!</option>
+          <option value="En Politibetjent er blevet elimineret!">En Politibetjent er blevet elimineret!</option>
+          <option value="En Sna[i]per er blevet elimineret!">En Sna[i]per er blevet elimineret!</option>
+          <option value="En Sna[i]per er blevet arresteret!">En Sna[i]per er blevet arresteret!</option>
+          <option value="En Politibetjent er sendt på orlov pga. falske anklager">En Politibetjent er sendt på orlov pga. falske anklager</option>
+          <option value="Folket har talt!">Folket har talt!</option>
+        </select>
+      </div>
+
+      <!-- Det dynamiske tekstfelt dukker op her -->
+      <div id="tekstfeltSektion" class="dynamisk-sektion felt-gruppe">
+        <label id="tekstfeltLabel" for="skrevetTekst">Skriv din historie:</label>
+        <textarea id="skrevetTekst" rows="6" required placeholder="Skriv din artikel eller observation her..."></textarea>
+      </div>
+
+      <button id="sendKnap" onclick="indsendJournalistArkiv()">Indsend til Journalen</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <script>
+    // BEMÆRK: Husk at indsætte URL til din Cloud Function, når du udruller:
+    const CLOUD_FUNCTION_URL = "https://journalist-input-j4pfab4uda-ew.a.run.app";
+
+    // Hent spildata baseret på URL-parameteren (?id=XXX)
+    window.onload = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const idParam = urlParams.get('id');
+
+      if (!idParam) {
+        document.getElementById('holdNavnVisning').innerHTML = "Fejl: ID mangler i URL'en. Kontakt din spilleder.";
+        document.getElementById('holdNavnVisning').style.color = "#ff3b30";
+        return;
+      }
+
+      fetch(`${CLOUD_FUNCTION_URL}?id=${encodeURIComponent(idParam)}`)
+        .then(response => {
+          if (!response.ok) {
+            return response.text().then(text => { throw new Error(text) });
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.succes) {
+            document.getElementById('holdNavnVisning').innerHTML = "Spil: " + data.navn;
+            document.getElementById('spreadsheetId').value = data.spreadsheetId;
+            
+            const egetNavnSelect = document.getElementById('egetNavn');
+            const omtaleSelect = document.getElementById('omtaleNavn');
+            
+            data.spillere.forEach(spiller => {
+              egetNavnSelect.add(new Option(spiller, spiller));
+              omtaleSelect.add(new Option(spiller, spiller));
+            });
+
+            document.getElementById('formularContainer').style.display = "block";
+          }
+        })
+        .catch(error => {
+          document.getElementById('holdNavnVisning').innerHTML = error.message.includes('<h3>') ? error.message : "<h3>Fejl ved indlæsning af spildata.</h3>";
+          document.getElementById('holdNavnVisning').style.color = "#ff3b30";
+        });
+    };
+
+    // Styrer visning af det rigtige tekstfelt baseret på journalistens valg
+    function haandterValgskift() {
+      const valg = document.getElementById('valgtInput').value;
+      const sektion = document.getElementById('tekstfeltSektion');
+      const label = document.getElementById('tekstfeltLabel');
+      const textarea = document.getElementById('skrevetTekst');
+
+      if (!valg) {
+        sektion.style.display = "none";
+        textarea.value = "";
+        return;
+      }
+
+      // Tilpas labelen dynamisk, så den matcher journalistens valg
+      label.innerText = "Historie om: " + valg;
+      textarea.placeholder = "Skriv artiklen her...";
+      sektion.style.display = "block";
+    }
+
+    function indsendJournalistArkiv() {
+      var email = document.getElementById('email').value.trim();
+      var egetNavn = document.getElementById('egetNavn').value;
+      var omtaleNavn = document.getElementById('omtaleNavn').value;
+      var valgtInput = document.getElementById('valgtInput').value;
+      var skrevetTekst = document.getElementById('skrevetTekst').value.trim();
+      
+      var spreadsheetId = document.getElementById('spreadsheetId').value;
+      var statusDiv = document.getElementById('status');
+      var sendKnap = document.getElementById('sendKnap');
+
+      if (!email || !egetNavn || !omtaleNavn || !valgtInput || !skrevetTekst) {
+        alert('Udfyld venligst alle felter og skriv historien før indsendelse.');
+        return;
+      }
+
+      sendKnap.disabled = true;
+      statusDiv.innerHTML = "Indsender din historie til journalen...";
+      statusDiv.style.color = "#0071e3";
+
+      var payload = {
+        email: email,
+        egetNavn: egetNavn,
+        omtaleNavn: omtaleNavn,
+        valgtInput: valgtInput,
+        skrevetTekst: skrevetTekst,
+        spreadsheetId: spreadsheetId
+      };
+
+      fetch(CLOUD_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(svar => {
+        if (svar.success) {
+          document.getElementById('formularContainer').innerHTML = 
+            "<div style='text-align:center; padding: 20px 0;'> " +
+            "<h3 style='color:#34c759; border:none; font-size:20px; font-weight:600; margin-bottom:10px;'>Historien er indsendt!</h3>" +
+            "<p style='color:#86868b; margin:0;'>Dine data er gemt i 'JS' fanearket. Godt skrevet!</p>" +
+            "</div>";
+        } else {
+          statusDiv.innerHTML = "Fejl: " + svar.error;
+          statusDiv.style.color = "#ff3b30";
+          sendKnap.disabled = false;
+        }
+      })
+      .catch(error => {
+        statusDiv.innerHTML = "Forbindelsesfejl: Kunne ikke indsende historien.";
+        statusDiv.style.color = "#ff3b30";
+        sendKnap.disabled = false;
+      });
+    }
+  </script>
+</body>
+</html>
