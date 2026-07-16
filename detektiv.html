@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sna[i]per - Start Afstemning</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background-color: #f5f5f7; color: #1d1d1f; max-width: 450px; margin: 0 auto; }
+    .container { background-color: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    h2 { margin-top: 0; color: #000000; font-size: 22px; font-weight: 700; }
+    h3 { color: #86868b; font-size: 15px; font-weight: 500; margin-top: -10px; margin-bottom: 25px; border-bottom: 1px solid #d2d2d7; padding-bottom: 10px; }
+    .felt-gruppe { margin-bottom: 15px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 13px; }
+    select { width: 100%; padding: 12px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 15px; background-color: #f5f5f7; }
+    select:focus { outline: none; border-color: #0071e3; background-color: #ffffff; }
+    button { background-color: #ff3b30; color: white; border: none; padding: 14px 20px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 15px; }
+    button:disabled { background-color: #d2d2d7; color: #86868b; cursor: not-allowed; }
+    #status { margin-top: 15px; font-weight: 500; text-align: center; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Privatdetektiv: Ny Afstemning</h2>
+    <h3 id="holdNavnVisning">Henter spildata...</h3>
+    <input type="hidden" id="spreadsheetId" value="">
+
+    <div id="formularContainer" style="display: none;">
+      <p style="font-size: 14px; color: #86868b; margin-bottom: 20px;">Vælg de 5 spillere, som "folket" skal stemme om at sende i fængsel i denne runde. Afstemningen vil vare i 30 minutter.</p>
+      
+      <div class="felt-gruppe"><label>Mistænkt Spiller 1:</label><select id="nom1" required><option value="">Vælg spiller...</option></select></div>
+      <div class="felt-gruppe"><label>Mistænkt Spiller 2:</label><select id="nom2" required><option value="">Vælg spiller...</option></select></div>
+      <div class="felt-gruppe"><label>Mistænkt Spiller 3:</label><select id="nom3" required><option value="">Vælg spiller...</option></select></div>
+      <div class="felt-gruppe"><label>Mistænkt Spiller 4:</label><select id="nom4" required><option value="">Vælg spiller...</option></select></div>
+      <div class="felt-gruppe"><label>Mistænkt Spiller 5:</label><select id="nom5" required><option value="">Vælg spiller...</option></select></div>
+
+      <button id="sendKnap" onclick="startAfstemning()">Start 30-minutters Afstemning</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <script>
+    const CLOUD_FUNCTION_URL = "https://privatdetektiv-afstemning-j4pfab4uda-ew.a.run.app"; // Husk at opdatere hvis du skifter URL
+
+    window.onload = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const idParam = urlParams.get('id');
+      if (!idParam) {
+        document.getElementById('holdNavnVisning').innerHTML = "Fejl: ID mangler i URL'en.";
+        return;
+      }
+
+      fetch(`${CLOUD_FUNCTION_URL}?id=${encodeURIComponent(idParam)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.succes) {
+            document.getElementById('holdNavnVisning').innerHTML = "Spil: " + data.navn;
+            document.getElementById('spreadsheetId').value = data.spreadsheetId;
+            
+            for(let i=1; i<=5; i++) {
+              const select = document.getElementById('nom' + i);
+              data.spillere.forEach(s => select.add(new Option(s, s)));
+            }
+            document.getElementById('formularContainer').style.display = "block";
+          }
+        });
+    };
+
+    function startAfstemning() {
+      const spreadsheetId = document.getElementById('spreadsheetId').value;
+      const nominerede = [
+        document.getElementById('nom1').value,
+        document.getElementById('nom2').value,
+        document.getElementById('nom3').value,
+        document.getElementById('nom4').value,
+        document.getElementById('nom5').value
+      ];
+
+      if (nominerede.some(n => !n)) {
+        alert("Vælg venligst alle 5 mistænkte spillere.");
+        return;
+      }
+
+      if (new Set(nominerede).size !== 5) {
+        alert("Du kan ikke vælge den samme spiller flere gange.");
+        return;
+      }
+
+      const sendKnap = document.getElementById('sendKnap');
+      sendKnap.disabled = true;
+      document.getElementById('status').innerHTML = "Starter ny afstemning...";
+
+      fetch(CLOUD_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spreadsheetId: spreadsheetId,
+          handling: "opret",
+          nominerede: nominerede
+        })
+      })
+      .then(res => res.json())
+      .then(svar => {
+        if (svar.success) {
+          document.getElementById('formularContainer').innerHTML = "<h3 style='color:#34c759; border:none; text-align:center;'>Afstemningen er nu live!</h3>";
+        } else {
+          alert("Fejl: " + svar.error);
+          sendKnap.disabled = false;
+        }
+      });
+    }
+  </script>
+</body>
+</html>
