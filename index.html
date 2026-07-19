@@ -167,22 +167,22 @@
   </div>
 
   <script>
-    // INDSÆT DIN NYE GOOGLE CLOUD FUNCTION URL HER
     const CLOUD_FUNCTION_URL = "https://snaipertilmelding-v2-j4pfab4uda-ew.a.run.app";
 
-    // Kør automatisk når siden loades for at lave dynamic lookup via URL-parameter (?skole=XXX)
+    // Kør automatisk når siden loades for at lave dynamic lookup via URL-parameter (?id=XXX)
     window.onload = function() {
       const urlParams = new URLSearchParams(window.location.search);
-      const skoleID = urlParams.get('skole');
+      const idParam = urlParams.get('id'); // 1. ÆNDRET HER
 
-      if (!skoleID) {
-        document.getElementById('holdNavnVisning').innerHTML = "Fejl: Skole-ID mangler i URL'en. Kontakt din spilleder.";
+      if (!idParam) {
+        // 2. ÆNDRET FEJLTEKST HER
+        document.getElementById('holdNavnVisning').innerHTML = "Fejl: ID mangler i URL'en. Kontakt din spilleder.";
         document.getElementById('holdNavnVisning').style.color = "#ff3b30";
         return;
       }
 
-      // Kalder din nye Google Cloud Function backend (Trin 1: Validering og hent data)
-      fetch(`${CLOUD_FUNCTION_URL}?skole=${encodeURIComponent(skoleID)}`)
+      // 3. ÆNDRET URL PARAMETER HER FRA ?skole= TIL ?id=
+      fetch(`${CLOUD_FUNCTION_URL}?id=${encodeURIComponent(idParam)}`)
         .then(response => {
           if (!response.ok) {
             return response.text().then(text => { throw new Error(text) });
@@ -263,7 +263,6 @@
             mappeId: mappeId
           };
 
-          // Kalder din nye Google Cloud Function backend (Trin 2: Gemmer data)
           fetch(CLOUD_FUNCTION_URL, {
             method: 'POST',
             headers: {
