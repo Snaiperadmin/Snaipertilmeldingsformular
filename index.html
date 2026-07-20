@@ -117,9 +117,6 @@
     
     <h3 id="holdNavnVisning">Henter spildata...</h3>
 
-    <input type="hidden" id="spreadsheetId" value="">
-    <input type="hidden" id="mappeId" value="">
-
     <div id="formularContainer" style="display: none;">
       <div class="felt-gruppe">
         <label for="email">E-mail adresse:</label>
@@ -169,19 +166,16 @@
   <script>
     const CLOUD_FUNCTION_URL = "https://snaipertilmelding-v2-j4pfab4uda-ew.a.run.app";
 
-    // Kør automatisk når siden loades for at lave dynamic lookup via URL-parameter (?id=XXX)
     window.onload = function() {
       const urlParams = new URLSearchParams(window.location.search);
-      const idParam = urlParams.get('id'); // 1. ÆNDRET HER
+      const idParam = urlParams.get('id');
 
       if (!idParam) {
-        // 2. ÆNDRET FEJLTEKST HER
         document.getElementById('holdNavnVisning').innerHTML = "Fejl: ID mangler i URL'en. Kontakt din spilleder.";
         document.getElementById('holdNavnVisning').style.color = "#ff3b30";
         return;
       }
 
-      // 3. ÆNDRET URL PARAMETER HER FRA ?skole= TIL ?id=
       fetch(`${CLOUD_FUNCTION_URL}?id=${encodeURIComponent(idParam)}`)
         .then(response => {
           if (!response.ok) {
@@ -192,8 +186,6 @@
         .then(data => {
           if (data.succes) {
             document.getElementById('holdNavnVisning').innerHTML = "Spil: " + data.navn;
-            document.getElementById('spreadsheetId').value = data.spreadsheetId;
-            document.getElementById('mappeId').value = data.mappeId;
             document.getElementById('formularContainer').style.display = "block";
           }
         })
@@ -204,15 +196,15 @@
     };
 
     function indsendTilmelding() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const idParam = urlParams.get('id');
+
       var email = document.getElementById('email').value.trim();
       var fornavn = document.getElementById('fornavn').value.trim();
       var efternavn = document.getElementById('efternavn').value.trim();
       var fileInput = document.getElementById('selfie');
       var statusDiv = document.getElementById('status');
       var sendKnap = document.getElementById('sendKnap');
-      
-      var spreadsheetId = document.getElementById('spreadsheetId').value;
-      var mappeId = document.getElementById('mappeId').value;
 
       var valgteRoller = [];
       var checkboxes = document.querySelectorAll('input[name="rolleOnske"]:checked');
@@ -220,7 +212,7 @@
         valgteRoller.push(checkbox.value);
       });
 
-      if (!email || !fornavn || !efternavn || valgteRoller.length === 0 || !fileInput.files[0]) {
+      if (!idParam || !email || !fornavn || !efternavn || valgteRoller.length === 0 || !fileInput.files[0]) {
         alert('Udfyld venligst alle felter, vælg mindst én rolle og tag et billede.');
         return;
       }
@@ -254,13 +246,12 @@
           var compressedBase64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
           
           var tilmeldingsData = {
+            id: idParam,
             email: email,
             fornavn: fornavn,
             efternavn: efternavn,
             rolleOnske: valgteRoller, 
-            billedeBase64: compressedBase64,
-            spreadsheetId: spreadsheetId,
-            mappeId: mappeId
+            billedeBase64: compressedBase64
           };
 
           fetch(CLOUD_FUNCTION_URL, {
@@ -285,7 +276,7 @@
             }
           })
           .catch(error => {
-            statusDiv.innerHTML = "Forbindelsesfejl: Kunne ikke sende tilmelder.";
+            statusDiv.innerHTML = "Forbindelsesfejl: Kunne ikke sende tilmelding.";
             statusDiv.style.color = "#ff3b30";
             sendKnap.disabled = false;
           });
