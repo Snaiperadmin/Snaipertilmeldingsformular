@@ -1,9 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="da">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sna[i]per - Tilmelding</title>
+  
+  <!-- Google reCAPTCHA v3 Script -->
+  <script src="https://www.google.com/recaptcha/api.js?render=DIN_RECAPTCHA_SITE_KEY"></script>
+
   <style>
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
@@ -107,6 +111,7 @@
       font-weight: 500; 
       text-align: center; 
       font-size: 14px;
+      word-break: break-word;
     }
   </style>
 </head>
@@ -120,17 +125,17 @@
     <div id="formularContainer" style="display: none;">
       <div class="felt-gruppe">
         <label for="email">E-mail adresse:</label>
-        <input type="email" id="email" required placeholder="Skole- eller privatmail">
+        <input type="email" id="email" required maxlength="100" placeholder="Skole- eller privatmail">
       </div>
 
       <div class="felt-gruppe">
         <label for="fornavn">Fornavn:</label>
-        <input type="text" id="fornavn" required autocomplete="given-name">
+        <input type="text" id="fornavn" required maxlength="50" autocomplete="given-name">
       </div>
 
       <div class="felt-gruppe">
         <label for="efternavn">Efternavn:</label>
-        <input type="text" id="efternavn" required autocomplete="family-name">
+        <input type="text" id="efternavn" required maxlength="50" autocomplete="family-name">
       </div>
 
       <div class="felt-gruppe">
@@ -165,6 +170,7 @@
 
   <script>
     const CLOUD_FUNCTION_URL = "https://snaipertilmelding-v2-j4pfab4uda-ew.a.run.app";
+    const RECAPTCHA_SITE_KEY = "6LfhOGAtAAAAAA73H_4Ae6hj2m0InA_EmJoDvn0H"; // Indsæt din reCAPTCHA Site Key her
 
     window.onload = function() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -185,7 +191,7 @@
         })
         .then(data => {
           if (data.succes) {
-            document.getElementById('holdNavnVisning').innerHTML = "Spil: " + data.navn;
+            document.getElementById('holdNavnVisning').innerHTML = "Spil: " + escapeHtml(data.navn);
             document.getElementById('formularContainer').style.display = "block";
           }
         })
@@ -217,11 +223,33 @@
         return;
       }
 
+      var file = fileInput.files[0];
+      if (!file.type.startsWith('image/')) {
+        alert('Du skal uploade en gyldig billedfil.');
+        return;
+      }
+
       sendKnap.disabled = true;
-      statusDiv.innerHTML = "Komprimerer selfie og sender tilmelding...";
+      statusDiv.innerHTML = "Verificerer sikkerhed og behandler selfie...";
       statusDiv.style.color = "#0071e3";
 
-      var file = fileInput.files[0];
+      // Hent reCAPTCHA v3 Token
+      grecaptcha.ready(function() {
+        grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'tilmelding' })
+          .then(function(token) {
+            behandlOgSend(token, idParam, email, fornavn, efternavn, valgteRoller, file);
+          })
+          .catch(function(err) {
+            statusDiv.innerHTML = "Fejl ved sikkerhedstjek. Prøv venligst igen.";
+            statusDiv.style.color = "#ff3b30";
+            sendKnap.disabled = false;
+          });
+      });
+    }
+
+    function behandlOgSend(captchaToken, idParam, email, fornavn, efternavn, valgteRoller, file) {
+      var statusDiv = document.getElementById('status');
+      var sendKnap = document.getElementById('sendKnap');
       var reader = new FileReader();
 
       reader.onload = function(e) {
@@ -251,8 +279,11 @@
             fornavn: fornavn,
             efternavn: efternavn,
             rolleOnske: valgteRoller, 
-            billedeBase64: compressedBase64
+            billedeBase64: compressedBase64,
+            captchaToken: captchaToken
           };
+
+          statusDiv.innerHTML = "Sender tilmelding...";
 
           fetch(CLOUD_FUNCTION_URL, {
             method: 'POST',
@@ -270,7 +301,7 @@
                 "<p style='color:#86868b; margin:0;'>Hold øje med din indbakke. Spillet starter snart.</p>" +
                 "</div>";
             } else {
-              statusDiv.innerHTML = "Fejl: " + svar.error;
+              statusDiv.innerHTML = "Fejl: " + escapeHtml(svar.error);
               statusDiv.style.color = "#ff3b30";
               sendKnap.disabled = false;
             }
@@ -284,6 +315,16 @@
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
   </script>
 </body>
